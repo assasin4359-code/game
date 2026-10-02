@@ -1,0 +1,57 @@
+<title>Blade Summoner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Do+Hyeon&family=Nanum+Gothic+Coding:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: dark;
+  --ground:#050505;
+  --ink:#f2f2f2;
+  --dim:#8c8c8c;
+  --key:#ffde28;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding-inline:16px;padding-block:10px;font-family:"Nanum Gothic Coding","Malgun Gothic",ui-monospace,Consolas,monospace}
+#stage{position:relative;line-height:0}
+#screen{display:block;width:480px;height:270px;max-width:100%;image-rendering:pixelated;image-rendering:crisp-edges;outline:2px solid var(--ink);outline-offset:4px;background:#fff;touch-action:none}
+#legend{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;margin:0;padding:0;list-style:none;font-size:12px;line-height:1.6;color:var(--dim);max-width:820px}
+#legend li{white-space:nowrap}
+#legend kbd{font:inherit;font-weight:700;color:var(--key)}
+#legend .n{color:var(--ink)}
+#touch{position:absolute;inset:0;pointer-events:none}
+.tb{position:absolute;pointer-events:auto;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,255,255,.75);background:rgba(0,0,0,.4);color:#fff;font:700 11px/1 "Nanum Gothic Coding","Malgun Gothic",monospace;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:none}
+.tb.on{background:rgba(228,20,36,.65)}
+@media (max-height:430px){#legend{display:none}}
+</style>
+<div id="stage">
+  <canvas id="screen" width="480" height="270" aria-label="블레이드 서머너 게임 화면"></canvas>
+  <div id="touch" hidden>
+    <div class="tb" data-k="left" style="left:2%;bottom:6%">◀</div>
+    <div class="tb" data-k="right" style="left:14%;bottom:6%">▶</div>
+    <div class="tb" data-k="down" style="left:8%;bottom:30%">▼</div>
+    <div class="tb" data-k="jump" style="right:2%;bottom:6%">점프</div>
+    <div class="tb" data-k="attack" style="right:14%;bottom:14%">공격</div>
+    <div class="tb" data-k="dash" style="right:2%;bottom:30%">대시</div>
+    <div class="tb" data-k="slot0" style="right:26%;bottom:6%">스킬1</div>
+    <div class="tb" data-k="slot1" style="right:26%;bottom:26%">스킬2</div>
+    <div class="tb" data-k="slot2" style="right:26%;bottom:46%">스킬3</div>
+    <div class="tb" data-k="special" style="right:14%;bottom:38%">필살</div>
+    <div class="tb" data-k="slot3" style="right:38%;bottom:6%">스킬4</div>
+    <div class="tb" data-k="slot4" style="right:38%;bottom:26%">스킬5</div>
+    <div class="tb" data-k="start" style="left:2%;top:4%">시작</div>
+  </div>
+</div>
+<ul id="legend">
+  <li><span class="n">이동</span> <kbd>A</kbd> <kbd>D</kbd></li>
+  <li><span class="n">점프</span> <kbd>W</kbd> 또는 <kbd>Space</kbd> · 2단 점프</li>
+  <li><span class="n">아래</span> <kbd>S</kbd> · 발판에서 내려오기</li>
+  <li><span class="n">공격</span> <kbd>J</kbd> · 5연타 · 화살 튕겨내기</li>
+  <li><span class="n">대시</span> <kbd>K</kbd> · 무적 · 대시 중 <kbd>J</kbd> 관통 찌르기</li>
+  <li><span class="n">저스트 회피</span> 공격 직전 <kbd>K</kbd> · 시간 감속 + 반격</li>
+  <li><span class="n">공중</span> <kbd>S</kbd>+<kbd>J</kbd> 내려찍기</li>
+  <li><span class="n">스킬 슬롯</span> <kbd>L</kbd> <kbd>I</kbd> <kbd>O</kbd> <kbd>H</kbd> <kbd>N</kbd> · 월드 맵 &gt; 스킬에서 장착</li>
+  <li><span class="n">필살기</span> <kbd>U</kbd> 길게 · SP 100%</li>
+  <li><span class="n">승룡검</span> 땅에서 <kbd>S</kbd>+<kbd>J</kbd> (블레이드 마스터)</li>
+  <li><span class="n">시작/진행</span> <kbd>Enter</kbd> · <span class="n">일시정지</span> <kbd>P</kbd> · <span class="n">소리</span> <kbd>M</kbd></li>
+</ul>
