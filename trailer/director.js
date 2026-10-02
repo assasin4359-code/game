@@ -1,6 +1,7 @@
 // in-page helpers for the trailer capture (injected after the game scripts)
 window.__D = (() => {
   const held = new Set();
+  let hopAt = -99;
   let want = new Set(), taps = [];
   function setKeys(hold, tap) {
     for (const k of held) if (!hold.has(k)) { release(k); held.delete(k); }
@@ -30,6 +31,16 @@ window.__D = (() => {
     const dx = tg.x - p.x, dist = Math.abs(dx), dirKey = dx > 0 ? 'right' : 'left';
     const near = plan.near ?? 44;
     if (plan.just && !act && p.state === 'normal' && p.dashCd <= 0 && threatNear(p)) { tap.push('dash'); setKeys(hold, tap); return; }
+    // hop: clear a floor-skimming giant arrow (and double-jump at the top of the first jump)
+    if (plan.hop && !act) {
+      const g = arrows.find(a => a.kind === 'giant' && !a.friendly && Math.sign(p.x - a.x) === Math.sign(a.vx || 1) && Math.abs(a.x - p.x) < 60);
+      if (g && p.onGround) { tap.push('jump'); hopAt = i; setKeys(hold, tap); return; }
+      if (!p.onGround && p.jumps === 1 && i - hopAt > 8 && i - hopAt < 24 && p.vy > -1.5) { tap.push('jump'); setKeys(hold, tap); return; }
+    }
+    if (plan.deflect && !act && (p.state === 'normal' || p.state === 'attack') && i % 3 === 0) {
+      const a = arrows.find(a => !a.stuck && !a.friendly && a.kind !== 'visual' && Math.abs(a.x - p.x) < 44 && Math.abs(a.y - (p.y - 20)) < 30 && Math.sign(p.x - a.x) === Math.sign(a.vx || 1));
+      if (a) { if (Math.sign(a.x - p.x) !== p.face) hold.add(a.x > p.x ? 'right' : 'left'); tap.push('attack'); setKeys(hold, tap); return; }
+    }
     if (act) {
       for (const a of [].concat(act)) {
         if (a === 'face') hold.add(dirKey);
@@ -44,5 +55,12 @@ window.__D = (() => {
     if (plan.holds && plan.holds(i)) for (const k of plan.holds(i)) hold.add(k);
     setKeys(hold, tap);
   }
-  return {setup, auto, setKeys, flushTaps};
+  // scripted keys only: 'k' taps, '+k' holds for this frame
+  function keys(list) {
+    flushTaps();
+    const hold = new Set(), tap = [];
+    for (const a of list) { if (a.startsWith('+')) hold.add(a.slice(1)); else tap.push(a); }
+    setKeys(hold, tap);
+  }
+  return {setup, auto, setKeys, flushTaps, keys};
 })();

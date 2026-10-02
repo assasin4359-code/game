@@ -25,7 +25,9 @@ python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1 & srv=$!
 trap 'kill $srv 2>/dev/null' EXIT
 for _ in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$port/game-dev.html" && break; sleep 0.1; done
 
-PORT=$port node "$here/capture.js" full
-PORT=$port node "$here/audio.js" out/sound.json out/sound.wav
-node "$here/mix.js" out/video.mp4 out/sound.wav "$here/blade-summoner-trailer.mp4"
-echo "wrote $here/blade-summoner-trailer.mp4"
+# EDL picks the edit (edl.js: the trailer, duel.edl.js: the duel short); NAME the output file
+edl=${EDL:-edl.js}; name=${NAME:-blade-summoner-trailer}
+EDL=$edl OUT=out/video-$name.mp4 SOUND=out/sound-$name.json PORT=$port node "$here/capture.js" full
+PORT=$port node "$here/audio.js" out/sound-$name.json out/sound-$name.wav
+SOUND=out/sound-$name.json node "$here/mix.js" out/video-$name.mp4 out/sound-$name.wav "$here/$name.mp4"
+echo "wrote $here/$name.mp4"

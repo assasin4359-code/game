@@ -6,13 +6,16 @@ const every = mode === 'preview' ? +(process.argv[3] || 12) : 0;
 const only = process.argv[4] ? process.argv[4].split(',').map(Number) : null;
 (async () => {
   const { browser, page, ev } = await boot();
-  for (const f of ['director.js', 'rt.js', 'edl.js']) await page.addScriptTag({ path: __dirname + '/' + f });
+  const EDL = process.env.EDL || 'edl.js', OUT = process.env.OUT || 'out/video.mp4';
+  for (const f of ['director.js', 'rt.js', EDL]) await page.addScriptTag({ path: __dirname + '/' + f });
+  // the edit may ask for a bigger canvas (a 1080p edit composes at full size; the trailer composes at 960x540)
+  const size = await ev(snapEnv => { const o = __EDL.out || [960, 540]; __T.setOut(o[0], o[1]); __T.snap = snapEnv === '1' || (snapEnv !== '0' && !!__EDL.snap); return o; }, process.env.SNAP || '');
   const info = await ev(() => ({ n: __EDL.segs.length, total: __EDL.total, segs: __EDL.segs.map(s => [s.shot, s.key || s.scene || '', s.f0, s.len]) }));
   console.log('segments', info.n, 'frames', info.total, (info.total / 60).toFixed(1) + 's');
   let ff = null;
   if (mode === 'full') {
     ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', '60', '-i', '-',
-      '-vf', 'scale=1920:1080:flags=neighbor', '-c:v', 'libx264', '-preset', 'medium', '-crf', process.env.CRF || '20', '-tune', 'animation', '-pix_fmt', 'yuv420p', 'out/video.mp4'], { stdio: ['pipe', 'inherit', 'inherit'] });
+      '-vf', `scale=1920:1080:flags=neighbor`, '-c:v', 'libx264', '-preset', process.env.PRESET || 'medium', '-crf', process.env.CRF || '20', '-tune', 'animation', '-pix_fmt', 'yuv420p', OUT], { stdio: ['pipe', 'inherit', 'inherit'] });
   } else { fs.rmSync('prev', { recursive: true, force: true }); fs.mkdirSync('prev'); }
   const write = buf => new Promise(r => ff.stdin.write(buf) ? r() : ff.stdin.once('drain', r));
   const t0 = Date.now();
@@ -35,7 +38,7 @@ const only = process.argv[4] ? process.argv[4].split(',').map(Number) : null;
   const cues = await ev(() => __EDL.cues);
   const music = await ev(() => __EDL.music || []);
   fs.mkdirSync('out', { recursive: true });
-  if (!only) fs.writeFileSync(mode === 'full' ? 'out/sound.json' : 'out/sound-preview.json', JSON.stringify({ total: info.total, segs: info.segs, log, cues, music }));
+  if (!only) fs.writeFileSync(mode === 'full' ? (process.env.SOUND || 'out/sound.json') : 'out/sound-preview.json', JSON.stringify({ total: info.total, segs: info.segs, log, cues, music }));
   if (ff) { ff.stdin.end(); await new Promise(r => ff.on('close', r)); }
   await browser.close();
 })();

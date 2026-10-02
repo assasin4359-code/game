@@ -163,45 +163,173 @@ window.__T = (() => {
         render(); if (s.z > 1) follow(s);
       },
     },
+    // a choreographed shot. cont: carry on from the previous shot's world instead of a fresh setup; skip: jump
+    // cut (frames run silently first); acts: {frame: fn | 'key' | '+key' | [...]} on the shot's own clock;
+    // slow: playback speed divisor (fractions work); plan: the autopilot (director.js), off when absent
+    duel: {
+      setup(s) {
+        if (!s.cont) {
+          __D.setup(s.key || 'bow', s.opt || {});
+          settings.dmgNum = !!s.dmgNum;
+          if (s.init) s.init();
+        }
+        if (s.enter) s.enter();
+        if (s.skip) ff(s.skip, s.plan ? i => __D.auto(i, s.plan) : null);
+        s._acc = 0; s._li = 0;
+        wipeT = 0;
+      },
+      step(i, s) {
+        s._acc += 1 / (typeof s.slow === 'function' ? s.slow(i) : (s.slow || 1));
+        while (s._acc >= 1 - 1e-9) {
+          s._acc -= 1;
+          const li = s._li++;
+          const act = s.acts && s.acts[li];
+          const keys = [];
+          for (const a of [].concat(act || [])) { if (typeof a === 'function') a(li); else keys.push(a); }
+          if (s.plan) __D.auto(li, keys.length ? Object.assign({}, s.plan, {acts: {[li]: keys}}) : s.plan);
+          else if (keys.length) __D.keys(keys);
+          if (s.each) s.each(li);
+          if (s.hpFloor != null && boss.hp > 0) boss.hp = Math.max(boss.hp, boss.maxHp * s.hpFloor);
+          update();
+        }
+        if (s.render) s.render(); else render();
+        if (s.draw) s.draw(i);
+      },
+    },
   };
 
   /* ---- composition: game frame -> fades -> dither -> camera crop into a 960x540 frame ---- */
-  const out = mk(960, 540), og = out.getContext('2d');
+  const out = mk(960, 540);
+  let og = out.getContext('2d');
   og.imageSmoothingEnabled = false;
+  T.setOut = (w, h) => { out.width = w; out.height = h; og = out.getContext('2d'); og.imageSmoothingEnabled = false; };
+  T.snap = false;
+
+  /* the cinematic camera: cam = {on: 'mid'|'hero'|'boss'|[x, y], z: n | [z0, z1], dx, dy, k, ease} - zoom eases across
+     the shot, the target is chased with smoothing k (1 = locked) */
+  const EASE = {lin: u => u, out: easeOut, in: u => u * u, inout: u => u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2};
+  function camTarget(c) {
+    const p = player, b = boss;
+    let x, y;
+    if (Array.isArray(c.on)) [x, y] = c.on;
+    else if (c.on === 'hero') { x = p.x; y = p.y - 22; }
+    else if (c.on === 'boss') { x = b.x; y = b.y - 22; }
+    else { x = (p.x + b.x) / 2; y = (p.y + b.y) / 2 - 22; }
+    return [x + (c.dx || 0), y + (c.dy || 0)];
+  }
+  function cine(s, i, snap) {
+    const c = s.cam, u = (EASE[c.ease || 'inout'])(clamp(i / Math.max(1, s.len - 1), 0, 1));
+    const z = Array.isArray(c.z) ? lerp(c.z[0], c.z[1], u) : (c.z || 1);
+    let [tx, ty] = camTarget(c);
+    if (c.to) { const [x1, y1] = c.to; tx = lerp(tx, x1, u); ty = lerp(ty, y1, u); }
+    const k = snap ? 1 : (c.k ?? 0.12);
+    cam.x = lerp(cam.x, tx, k); cam.y = lerp(cam.y, ty, k); cam.z = z;
+  }
+  // impact frame: the whole picture slams to two tones, black ink on paper (or on red)
+  function impact(red) {
+    const im = vctx.getImageData(0, 0, W, H), d = im.data;
+    for (let p = 0; p < d.length; p += 4) {
+      const ink = d[p] + d[p + 1] + d[p + 2] < 90;
+      d[p] = ink ? 0 : 255; d[p + 1] = ink ? 0 : red ? 20 : 255; d[p + 2] = ink ? 0 : red ? 36 : 255;
+      if (red && !ink) d[p] = 228;
+    }
+    vctx.putImageData(im, 0, 0);
+  }
+  /* subtitles in the letterbox, drawn with the game's own Hangul renderer at a fixed pixel scale */
+  const NAMES = {boss: ['보우마스터', C.G3], hero: ['이름 없는 검사', C.W]};
+  function subtitle(s, i) {
+    for (const sb of s.subs || []) {
+      if (i < sb.at || i >= sb.at + sb.dur) continue;
+      const k = i - sb.at, n = Math.min(sb.text.length, Math.floor(k / (sb.speed || 1.5)) + 1), str = sb.text.slice(0, n);
+      if (n < sb.text.length && k % 3 === 0 && sb.text[n - 1] !== ' ') T.sfx('text');
+      const S = Math.max(2, Math.round(out.height / 360)), fade = Math.min(1, (sb.at + sb.dur - i) / 8);
+      og.globalAlpha = fade;
+      const r = kRender(str || ' ', 2, C.W, C.K), full = kRender(sb.text, 2, C.W, C.K);
+      const name = sb.who && NAMES[sb.who], nr = name ? kRender(name[0], 1, name[1], C.K) : null;
+      const totalW = full.w * S, x0 = Math.round(out.width / 2 - totalW / 2), y = out.height - (s.lb || 0) + Math.round(((s.lb || 0) - 18 * S) / 2) - (nr ? 4 * S : 0);
+      if (nr) og.drawImage(nr.cv, x0 - nr.pad * S, y - 14 * S, nr.cv.width * S, nr.cv.height * S);
+      og.drawImage(r.cv, x0 - r.pad * S, y, r.cv.width * S, r.cv.height * S);
+      og.globalAlpha = 1;
+    }
+  }
+  function fadeAlpha(s, i) {
+    let a = 0;
+    if (s.fadeIn && i < s.fadeIn) a = 1 - i / s.fadeIn;
+    if (s.fadeOut && i >= s.len - s.fadeOut) a = Math.max(a, (i - (s.len - s.fadeOut) + 1) / s.fadeOut);
+    return Math.min(1, a);
+  }
   function overlays(s, i) {
+    if (s.cam) { overlaysFlash(s, i); return; }   // cinematic shots fade smoothly on the output instead (see compose)
     let a = 0, col = C.K;
     if (s.fadeIn && i < s.fadeIn) a = 1 - i / s.fadeIn;
     if (s.fadeOut && i >= s.len - s.fadeOut) a = Math.max(a, (i - (s.len - s.fadeOut) + 1) / s.fadeOut);
     if (a > 0) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = Math.min(1, a); ctx.fillStyle = col; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+    overlaysFlash(s, i);
+  }
+  function overlaysFlash(s, i) {
     if (s.flashIn && i < s.flashIn) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1 - i / s.flashIn; ctx.fillStyle = s.flashCol || C.W; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
   }
-  function compose(s) {
-    const z = s.z || 1, sw = W / z, sh = H / z;
-    const cx = z > 1 ? cam.x : 240, cy = z > 1 ? cam.y : 135;
-    const sx = Math.round(clamp(cx - sw / 2, 0, W - sw)), sy = Math.round(clamp(cy - sh / 2, 0, H - sh));
-    og.drawImage(view, sx, sy, sw, sh, 0, 0, 960, 540);
-    if (s.bars) { og.fillStyle = '#000'; og.fillRect(0, 0, 960, s.bars); og.fillRect(0, 540 - s.bars, 960, s.bars); }
+  function compose(s, i) {
+    const OW = out.width, OH = out.height;
+    if (s.cam) {
+      // free zoom: the crop is snapped to whole output pixels so the picture never shimmers
+      og.fillStyle = '#000'; og.fillRect(0, 0, OW, OH);
+      if (s.snap ?? T.snap) {
+        // pixel-locked: whole output pixels per game pixel, moved in whole game pixels - a pan is then a plain shift
+        // of the picture, which video codecs love (zooms step instead of gliding)
+        const sc = Math.max(Math.round(OW / W), Math.round(OW / W * Math.max(1, cam.z))), sw = OW / sc, sh = OH / sc;
+        const sx = Math.round(clamp(cam.x - sw / 2, 0, W - sw)), sy = Math.round(clamp(cam.y - sh / 2, 0, H - sh));
+        og.drawImage(view, 0, 0, W, H, -sx * sc, -sy * sc, W * sc, H * sc);
+      } else {
+        const z = Math.max(1, cam.z), sw = W / z, sh = H / z, sc = OW / sw;
+        const sx = clamp(cam.x - sw / 2, 0, W - sw), sy = clamp(cam.y - sh / 2, 0, H - sh);
+        og.drawImage(view, 0, 0, W, H, Math.round(-sx * sc), Math.round(-sy * sc), Math.round(W * sc), Math.round(H * sc));
+      }
+    } else {
+      const z = s.z || 1, sw = W / z, sh = H / z;
+      const cx = z > 1 ? cam.x : 240, cy = z > 1 ? cam.y : 135;
+      const sx = Math.round(clamp(cx - sw / 2, 0, W - sw)), sy = Math.round(clamp(cy - sh / 2, 0, H - sh));
+      og.drawImage(view, sx, sy, sw, sh, 0, 0, OW, OH);
+    }
+    // a dithered fade reshuffles every pixel on every frame; on the output it is a plain dim (and cheap to encode)
+    if (s.cam) { const a = fadeAlpha(s, i); if (a > 0) { og.globalAlpha = a; og.fillStyle = '#000'; og.fillRect(0, 0, OW, OH); og.globalAlpha = 1; } }
+    const bars = s.lb || s.bars;
+    if (bars) { og.fillStyle = '#000'; og.fillRect(0, 0, OW, bars); og.fillRect(0, OH - bars, OW, bars); }
+    if (s.subs) subtitle(s, i);
+    if (s.over) s.over(og, i, OW, OH);
   }
   let seg = null;
   T.begin = (s) => {
     seg = s; T.f = s.f0;
     T.hideUI = s.hideUI !== false;
+    const hud = drawHUD; if (s.noHUD) drawHUD = () => {};
     (SHOTS[s.shot]).setup(s);
+    drawHUD = hud;
+    if (s.cam) cine(s, 0, true);
   };
   T.frames = (i0, n, fmt, every) => {
     const res = [];
     for (let i = i0; i < Math.min(seg.len, i0 + n); i++) {
       T.f = seg.f0 + i;
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+      const hud = drawHUD; if (seg.noHUD) drawHUD = () => {};
       SHOTS[seg.shot].step(i, seg);
-      if (every && (seg.f0 + i) % every) { res.push(null); continue; }
+      drawHUD = hud;
+      if (seg.cam) cine(seg, i);
+      if (every && (seg.f0 + i) % every) { if (seg.subs) subtitle(seg, i); res.push(null); continue; }
       overlays(seg, i);
       present();
-      compose(seg);
+      const imp = seg.impact && seg.impact.find(e => i >= e[0] && i < e[0] + (e[1] || 2));
+      if (imp) impact(!!imp[2]);
+      else if (T.kickN > 0) { impact(T.kickRed); T.kickN--; }
+      compose(seg, i);
       res.push(out.toDataURL(fmt || 'image/png'));
     }
     return res;
   };
+  // an impact frame triggered from inside the action (a just dodge, a break): n output frames, ink on paper or on red
+  T.kickN = 0; T.kickRed = false;
+  T.kick = (n = 2, red = false) => { T.kickN = n; T.kickRed = red; };
   T.takeLog = () => { const l = T.log; T.log = []; return l; };
   return T;
 })();

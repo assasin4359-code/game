@@ -2,7 +2,7 @@
 // (MUSIC = path to the track; the track itself is not kept in this repo). writes the finished trailer
 const fs = require('fs'), { spawnSync } = require('child_process');
 const [video, sound, dst] = [process.argv[2] || 'out/video.mp4', process.argv[3] || 'out/sound.wav', process.argv[4] || 'trailer.mp4'];
-const { music = [] } = JSON.parse(fs.readFileSync('out/sound.json', 'utf8'));
+const { music = [] } = JSON.parse(fs.readFileSync(process.env.SOUND || 'out/sound.json', 'utf8'));
 const MUSIC = process.env.MUSIC, SFX = process.env.SFX_GAIN || '0.75', MUS = process.env.MUSIC_GAIN || '0.8';
 const args = ['-v', 'error', '-y', '-i', video, '-i', sound];
 let graph;
@@ -30,7 +30,9 @@ const measure = spawnSync('ffmpeg', [...args.map(a => a === 'error' ? 'info' : a
 const m = JSON.parse(measure.stderr.slice(measure.stderr.lastIndexOf('{')));
 const linear = `loudnorm=${LN}:linear=true:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}`;
 graph = graph.replace(/loudnorm=[^\[]*\[a\]/, linear + ',aresample=48000[a]');
-args.push('-filter_complex', graph, '-map', '0:v', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', '-movflags', '+faststart', dst);
+// FINAL_CRF: re-encode the picture for delivery (capture a near-lossless master, then pick the size here)
+const vcodec = process.env.FINAL_CRF ? ['-c:v', 'libx264', '-preset', 'slow', '-crf', process.env.FINAL_CRF, '-tune', 'animation', '-pix_fmt', 'yuv420p', ...(process.env.FPS ? ['-r', process.env.FPS] : [])] : ['-c:v', 'copy'];
+args.push('-filter_complex', graph, '-map', '0:v', '-map', '[a]', ...vcodec, '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', '-movflags', '+faststart', dst);
 const r = spawnSync('ffmpeg', args, { stdio: 'inherit' });
 console.log('mixed: input', m.input_i, 'LUFS, LRA', m.input_lra);
 process.exit(r.status);
