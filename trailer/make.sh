@@ -3,6 +3,7 @@
 #   debug build of the game -> headless Chromium plays the edit (edl.js) frame by frame -> 1080p60 video
 #   every sound call is logged per frame and replayed through the game's own synth offline -> soundtrack
 # needs: node + playwright (with Chromium), ffmpeg, python3, curl
+# music: MUSIC=/path/to/deadly-force.(mp3|mp4|wav) trailer/make.sh  (the track is not kept in the repo)
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd); root=$(dirname "$here"); b="$here/.build"; port=${PORT:-8765}
 mkdir -p "$b/fonts" "$b/out"
@@ -26,6 +27,5 @@ for _ in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$port/game-dev.htm
 
 PORT=$port node "$here/capture.js" full
 PORT=$port node "$here/audio.js" out/sound.json out/sound.wav
-ffmpeg -v error -y -i out/video.mp4 -i out/sound.wav -map 0:v -map 1:a -c:v copy \
-  -af loudnorm=I=-15:TP=-1.5:LRA=11 -c:a aac -b:a 192k -ar 48000 -shortest -movflags +faststart "$here/blade-summoner-trailer.mp4"
+node "$here/mix.js" out/video.mp4 out/sound.wav "$here/blade-summoner-trailer.mp4"
 echo "wrote $here/blade-summoner-trailer.mp4"

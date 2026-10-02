@@ -7,8 +7,8 @@ const only = process.argv[4] ? process.argv[4].split(',').map(Number) : null;
 (async () => {
   const { browser, page, ev } = await boot();
   for (const f of ['director.js', 'rt.js', 'edl.js']) await page.addScriptTag({ path: __dirname + '/' + f });
-  const info = await ev(() => ({ n: __EDL.segs.length, total: __EDL.total, M0: __EDL.M0, E0: __EDL.E0, segs: __EDL.segs.map(s => [s.shot, s.key || s.scene || '', s.f0, s.len]) }));
-  console.log('segments', info.n, 'frames', info.total, (info.total / 60).toFixed(1) + 's', 'M0', info.M0, 'E0', info.E0);
+  const info = await ev(() => ({ n: __EDL.segs.length, total: __EDL.total, segs: __EDL.segs.map(s => [s.shot, s.key || s.scene || '', s.f0, s.len]) }));
+  console.log('segments', info.n, 'frames', info.total, (info.total / 60).toFixed(1) + 's');
   let ff = null;
   if (mode === 'full') {
     ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', '60', '-i', '-',
@@ -33,8 +33,9 @@ const only = process.argv[4] ? process.argv[4].split(',').map(Number) : null;
   }
   const log = await ev(() => __T.takeLog());
   const cues = await ev(() => __EDL.cues);
+  const music = await ev(() => __EDL.music || []);
   fs.mkdirSync('out', { recursive: true });
-  if (!only) fs.writeFileSync(mode === 'full' ? 'out/sound.json' : 'out/sound-preview.json', JSON.stringify({ total: info.total, segs: info.segs, log, cues }));
+  if (!only) fs.writeFileSync(mode === 'full' ? 'out/sound.json' : 'out/sound-preview.json', JSON.stringify({ total: info.total, segs: info.segs, log, cues, music }));
   if (ff) { ff.stdin.end(); await new Promise(r => ff.on('close', r)); }
   await browser.close();
 })();

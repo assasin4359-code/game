@@ -116,7 +116,14 @@ window.__T = (() => {
         const sy = Math.round(ly + px * 1.25 + 8);
         if (k > 26) { const n = Math.floor((k - 26) / 2); text('블레이드 서머너  ·  사슬의 연대기'.slice(0, n), 240, sy, {sc: 2, color: C.W, align: 'center'}); }
         if (tag && k > (s.tagAt || 70)) { const u = k - (s.tagAt || 70); text(s.tag, 240, sy + 30, {sc: 4, color: u < 4 ? C.W : C.R, align: 'center'}); }
-        if (s.foot && k > (s.footAt || 110)) { ctx.globalAlpha = 0.8; ctx.fillStyle = C.K; ctx.fillRect(0, 244, W, 20); ctx.globalAlpha = 1; text(s.foot, 240, 249, {color: C.W, align: 'center'}); }
+        if (s.foot && k > (s.footAt || 110)) {
+          const y0 = s.credit ? 234 : 244, hide = T.hideUI;
+          ctx.fillStyle = C.K; ctx.fillRect(0, y0, W, H - y0); ctx.fillStyle = C.R; ctx.fillRect(0, y0, W, 1);
+          T.hideUI = false;   // our own captions, not the game's prompts
+          text(s.foot, 240, y0 + 6, {color: C.W, align: 'center'});
+          if (s.credit) text(s.credit, 240, y0 + 22, {color: C.W, align: 'center'});
+          T.hideUI = hide;
+        }
         if (k < 24) { ctx.globalAlpha = Math.pow(1 - k / 24, 1.5); ctx.fillStyle = C.W; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
       },
     },
