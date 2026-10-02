@@ -39,4 +39,4 @@ MUSIC=/path/to/deadly-force.mp3 trailer/make.sh     # → trailer/blade-summoner
 - `audio.js`: 사운드 로그를 `OfflineAudioContext`로 재생해 효과음 트랙(wav)을 만듭니다.
 - `mix.js`: 곡을 편집 목록대로 잘라 붙이고 효과음과 섞은 뒤 라우드니스를 맞춥니다(2패스 선형).
 
-배포용 `blade-summoner.html`에는 `/*DEBUG*/` 훅이 빠져 있어서, `make.sh`가 `shell.html`과 `[0-9]*.js`로 디버그 빌드를 따로 조립합니다.
+배포용 `index.html`에는 `/*DEBUG*/` 훅이 빠져 있어서, `make.sh`가 `shell.html`과 `[0-9]*.js`로 디버그 빌드를 따로 조립합니다.

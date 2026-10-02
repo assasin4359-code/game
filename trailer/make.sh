@@ -15,7 +15,7 @@ if [ ! -f "$b/fonts/local.css" ]; then
   sed -E 's#https://fonts.gstatic.com/s/[^/]+/v[0-9]+/##' "$b/fonts/g.css" > "$b/fonts/local.css"
 fi
 
-# a debug build: the shipped blade-summoner.html has the /*DEBUG*/ hooks (window.__bs, __freeze) stripped
+# a debug build: the shipped index.html has the /*DEBUG*/ hooks (window.__bs, __freeze) stripped
 { echo '<!doctype html><meta charset="utf-8">'; echo '<link rel="stylesheet" href="fonts/local.css">'
   grep -v 'fonts.googleapis\|fonts.gstatic' "$root/shell.html"; echo '<script>'
   for f in $(cd "$root" && LC_ALL=C ls [0-9]*.js); do cat "$root/$f"; done; echo '</script>'; } > "$b/game-dev.html"
