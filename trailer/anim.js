@@ -6,8 +6,26 @@ window.__A = (() => {
 
   /* ---- the game's renderers, with a hand on the controls ---- */
   const _pp = playerPose, _bp = bossPose, _dp = drawPlayer, _bg = drawStageBg;
-  playerPose = p => p.pose || _pp(p);          // a set pose wins over the state machine's
-  bossPose = b => b.pose || _bp(b);
+  const rawPlayer = p => p.pose || _pp(p), rawBoss = b => b.pose || _bp(b);   // a set pose wins over the state machine's
+  playerPose = p => (A.on && p._disp) || rawPlayer(p);
+  bossPose = b => (A.on && b._disp) || rawBoss(b);
+  // (attacks, dashes and flips keep their own snap; everything else eases out of a sudden change of pose)
+  const JUMP = {hx: 3, hy: 3, lean: 0.25, ht: 0.25, l1: 0.4, l2: 0.4, r1: 0.4, r2: 0.4, bu: 0.4, bf: 0.4, fu: 0.4, ff: 0.4, sa: 0.45};
+  function settle(a, tgt, free) {
+    const prev = a._tgt, off = a._off || (a._off = {});
+    a._tgt = tgt;
+    if (!prev || !free) { a._off = {}; a._disp = tgt; return; }
+    const d = Object.assign({}, tgt);
+    for (const k in JUMP) {
+      if (typeof tgt[k] !== 'number' || typeof prev[k] !== 'number') { off[k] = 0; continue; }
+      const step = tgt[k] - prev[k];
+      if (Math.abs(step) > JUMP[k]) off[k] = (off[k] || 0) - step;
+      off[k] = (off[k] || 0) * 0.7; if (Math.abs(off[k]) < 1e-3) off[k] = 0;
+      d[k] = tgt[k] + off[k];
+    }
+    a._disp = d;
+  }
+  A.resetPoses = () => { for (const a of [player, boss]) { a._tgt = null; a._off = {}; a._disp = null; } };
   drawPlayer = () => { if (!A.hideHero) _dp(); };
   let bgFn = null;
   drawStageBg = mix => { if (bgFn) bgFn(mix); else _bg(mix); };
@@ -20,7 +38,7 @@ window.__A = (() => {
     Object.assign(player, {x: 100, y: FLOOR, face: 1, onGround: true, pose: null});
     bgMix = o.bgMix || 0;
     for (const pl of platforms) { pl.grow = o.platforms ? 1 : 0; pl.on = !!o.platforms; }
-    A.fx = []; A.hideHero = false; A.ts = 1; A.acc = 0;
+    A.fx = []; A.hideHero = false; A.ts = 1; A.acc = 0; A.resetPoses();
   };
 
   /* ---- the hero ---- */
@@ -34,7 +52,9 @@ window.__A = (() => {
     },
     air(x, y, vy, o = {}) { Object.assign(player, {x, y, vy, state: 'normal', onGround: false, pose: null, flipT: o.flip || 0, vx: o.vx || 0}); },
     attack(id, st, x = player.x, face = player.face, y = FLOOR) {
-      Object.assign(player, {x, y, face, state: 'attack', atk: ATTACKS[id], st, onGround: y >= FLOOR, pose: null});
+      const p = player, At = ATTACKS[id], prev = p.state === 'attack' && p.atk === At ? p.st : -1;
+      Object.assign(p, {x, y, face, state: 'attack', atk: At, st, onGround: y >= FLOOR, pose: null});
+      if (At.arc) At.wins.forEach((w, k) => { if (prev < w[0] && st >= w[0]) spawnComboArc(p, At, k); });
     },
     dash(x, face) { Object.assign(player, {x, y: FLOOR, face, dashDir: face, state: 'dash', st: (player.st || 0) + 1, onGround: true, pose: null}); },
     pose(x, y, face, q) { Object.assign(player, {x, y, face, state: 'normal', onGround: y >= FLOOR, pose: q}); },
@@ -57,6 +77,7 @@ window.__A = (() => {
   };
 
   /* ---- arrows, by hand ---- */
+  A.twang = (x, y) => { addP({kind: 'ring', x, y, r0: 2, rMax: 12, life: 7, color: C.W, size: 1.5}); for (const s of [-1, 1]) addP({kind: 'line', x, y: y + s * 3, vx: -Math.sign(boss.face) * 1.5, vy: s * 1.2, life: 6, color: C.W, size: 1, len: 3}); };
   A.arrow = (x, y, vx, vy, o = {}) => { const a = Object.assign({x, y, vx, vy, kind: 'arrow', dmg: 0, age: 0, stuck: 0, trail: [], g: 0}, o); arrows.push(a); return a; };
   function moveArrows(k) {
     for (let i = arrows.length - 1; i >= 0; i--) {
@@ -97,7 +118,9 @@ window.__A = (() => {
 
   /* ---- the clock: cosmetics only (particles, afterimages, fx), with a time scale for slow motion ---- */
   A.tick = (ts = 1) => {
-    A.ts = ts; A.acc += ts;
+    A.ts = ts; A.acc += ts; A.on = true;
+    const free = a => a.state === 'normal' || a.state === 'idle' || a.state === 'script' || a.state === 'leap' || a.state === 'rapid' || a.state === 'groundshot' || a.state === 'dead' || (!!a.pose && a.state !== 'backflip');
+    if (ts > 0) { settle(player, rawPlayer(player), free(player) && !player.flipT); settle(boss, rawBoss(boss), free(boss)); }
     globalT++;
     moveArrows(ts);
     for (const bm of beams) bm.t += ts;
@@ -105,6 +128,12 @@ window.__A = (() => {
     while (A.acc >= 1) {
       A.acc -= 1;
       player.animT++; boss.animT++;
+      const p = player;
+      for (const a of p.arcs) { a.t++; if (a.spark && a.t === 2) arcSparks(p, a); }
+      if (p.arcs.length) p.arcs = p.arcs.filter(a => a.t < a.life);
+      const At = p.atk, swinging = p.state === 'fury' || (p.state === 'attack' && At && !At.arc && At.id !== 5 && (curWindow(At, p.st) >= 0 || At.id === 'air2' && p.st < 12));
+      if (swinging) { const q = playerPose(p); p.trail.push(swordLine(p.x, p.y, q.flip ? -p.face : p.face, q, SWORD_LEN)); if (p.trail.length > 7) p.trail.shift(); }
+      else if (p.trail.length) p.trail.shift();
       updateParticles(); updateTexts(); updateAfterimages(); decayFx();
       for (let i = A.fx.length - 1; i >= 0; i--) if (--A.fx[i].life <= 0) A.fx.splice(i, 1);
       if (player.flipT > 0) player.flipT--;
@@ -236,7 +265,7 @@ window.__A = (() => {
 
   /* ---- the shot type ---- */
   __T.SHOTS.anim = {
-    setup(s) { if (s.init) s.init(); s.st = {}; },
+    setup(s) { if (s.init) s.init(); s.st = {}; A.resetPoses(); player.trail = []; },
     step(i, s) { s.frame(i, s.st); },
   };
   return A;

@@ -19,11 +19,18 @@ window.__EDL = (() => {
     return {l1, l2, r1, r2, hy: -15.2 - Math.abs(Math.cos(ph)) * sp};
   };
   // the hero: greatsword resting on the shoulder
-  const CARRY = {lean: 0.08, ht: 0.05, bu: -0.25, bf: 0.45, fu: 0.5, ff: 2.2, sa: -2.45};
+  const CARRY = {lean: 0.1, ht: 0.05, bu: -0.25, bf: 0.45, fu: 0.3, ff: 1.9, sa: -2.0};
+  // in a fight he walks with the blade low behind him (the game's own run carriage)
+  const LOW = {lean: 0.16, ht: 0, bf: 1.3, fu: -0.35, ff: 0.5, sa: -1.38};
   const STAND = {hy: -16, l1: -0.22, l2: 0, r1: 0.28, r2: -0.1};
   const IDLE = {hy: -15.2, lean: 0.14, ht: 0.05, l1: -0.38, l2: -0.12, r1: 0.42, r2: -0.28, bu: -0.25, bf: -0.5, fu: 0.55, ff: -0.35, sa: -1.25};
-  const qStand = o => makePose(Object.assign({}, IDLE, o));
+  const breath = (t, k = 1) => { const b = Math.sin(t * 0.06) * k, b2 = Math.sin(t * 0.023) * k; return {b, b2}; };
+  const qStand = o => { const {b, b2} = breath(player.animT); return makePose(Object.assign({}, IDLE, {hy: -15.2 + b * 0.5, lean: 0.14 + b * 0.02, ht: 0.05 + b2 * 0.06, bu: -0.25 + b * 0.05, fu: 0.55 + b * 0.03, sa: -1.25 + b * 0.02}, o)); };
+  const breathe = q => { const {b} = breath(boss.animT); q.hy += b * 0.45; q.lean += b * 0.02; return q; };
+  const STRIDE = 4.2;   // ground covered per radian of the walk cycle at this stride
+  const wph = x => x / STRIDE;
   const qWalk = (ph, o) => makePose(Object.assign({}, CARRY, legs(ph, 0.45), {bu: -0.25 - Math.sin(ph) * 0.3}, o));
+  const qWalkLow = (ph, o) => makePose(Object.assign({}, LOW, legs(ph, 0.5), {bu: -Math.sin(ph) * 0.5 - 0.2}, o));
   const qGuard = o => makePose(Object.assign({hy: -14.5, lean: 0.12, l1: -0.45, l2: 0.1, r1: 0.55, r2: -0.3, fu: 1.35, ff: 1.45, bu: 1.2, bf: 1.5, sa: Math.PI}, o));
   const qCharge = t => makePose({hy: -9, lean: 0.15 + Math.sin(t * 0.9) * 0.05, l1: 0.2, l2: -1.7, r1: 1.2, r2: -2.0, bu: 2.8, bf: 0.1, fu: 2.95, ff: 0.05, sa: Math.PI});
   const qCrouch = o => makePose(Object.assign({hy: -10, lean: 0.6, l1: -0.9, l2: -0.6, r1: 1.2, r2: -1.7, bu: -1.4, bf: 0.4, fu: 0.4, ff: 0.2, sa: -1.6}, o));
@@ -31,11 +38,11 @@ window.__EDL = (() => {
   const qLean = u => makePose(lerpPose(Object.assign({}, IDLE),
     {hy: -11.5, lean: -1.05, ht: -0.25, l1: 0.95, l2: -1.9, r1: 1.35, r2: -1.6, bu: 2.3, bf: 0.6, fu: -1.1, ff: 0.4, sa: -2.0}, u));
   // the bowmaster
-  const qKneel = o => makePose(Object.assign({hy: -9, lean: 0.4, ht: 0.5, l1: 0.2, l2: -1.8, r1: 1.3, r2: -1.3, fu: 0.3, ff: 0.1, bu: -0.2, bf: 0.1}, o));
-  const qSit = o => makePose(Object.assign({hy: -5, lean: -0.05, ht: 0.25, l1: 1.45, l2: -0.35, r1: 1.2, r2: -0.9, fu: 0.7, ff: -0.6, bu: -0.5, bf: 0.3}, o));
+  const qKneel = o => breathe(makePose(Object.assign({hy: -9, lean: 0.4, ht: 0.5, l1: 0.2, l2: -1.8, r1: 1.3, r2: -1.3, fu: 0.3, ff: 0.1, bu: -0.2, bf: 0.1}, o)));
+  const qSit = o => breathe(makePose(Object.assign({hy: -4, lean: -0.12, ht: 0.3, l1: 2.0, l2: -1.9, r1: 2.3, r2: -2.05, fu: 1.45, ff: 0.5, bu: -0.7, bf: 0.3}, o)));
   const qBlock = o => makePose(Object.assign({hy: -17, lean: -0.3, ht: -0.1, l1: 0.6, l2: -1.5, r1: 1.0, r2: -1.4, fu: 2.5, ff: 0.5, bu: 2.7, bf: -0.4}, o));
   const qLanded = o => makePose(Object.assign({hy: -12, lean: 0.45, ht: 0.1, l1: -1.0, l2: 0.2, r1: 0.9, r2: -1.2, fu: 1.4, ff: 0.1, bu: -1.6, bf: 0.4}, o));
-  const qPalm = o => makePose(Object.assign({hy: -15.6, lean: 0.12, ht: 0.55, l1: -0.3, l2: -0.08, r1: 0.34, r2: -0.2, fu: 0.6, ff: 0.4, bu: 2.75, bf: 1.6}, o));
+  const qPalm = o => breathe(makePose(Object.assign({hy: -15.6, lean: 0.12, ht: 0.55, l1: -0.3, l2: -0.08, r1: 0.34, r2: -0.2, fu: 0.6, ff: 0.4, bu: 2.75, bf: 1.6}, o)));
   const jt = (a, pose, name) => { const q = pose(a), J = solve(q), X = figXform(a.x, a.y, a.face, q, 1); return X.T(J[name]); };
   const hHead = () => jt(player, playerPose, 'head'), bHead = () => jt(boss, bossPose, 'head');
   const at = (a, b, sp) => { const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || 1; return [dx / d * sp, dy / d * sp, d / sp]; };
@@ -48,6 +55,13 @@ window.__EDL = (() => {
     ctx.strokeStyle = C.G2; ctx.lineWidth = 1.2; poly([[-14, 0], [-17, -2.5]]); poly([[-14, 0], [-17, 2.5]]);
     ctx.restore();
   };
+  // captions drawn on the 1080p frame with the game's own type
+  const cap = (og, s, o) => {
+    const r = kRender(s, o.sc ?? 2, o.color || C.W, o.outline === undefined ? C.K : o.outline), S = o.S || 3;
+    og.globalAlpha = o.a ?? 1;
+    og.drawImage(r.cv, Math.round(o.x - (o.align === 'left' ? 0 : r.w * S / 2) - r.pad * S), Math.round(o.y - r.pad * S), r.cv.width * S, r.cv.height * S);
+    og.globalAlpha = 1;
+  };
   const bgLines = (col, line, cx = 240, cy = 135, o = {}) => () => { A.fill(col); A.speedLines(cx, cy, Object.assign({color: line}, o)); };
   const bgPlain = col => () => A.fill(col);
   const leafIdle = () => { if (globalT % 9 === 0) addP({kind: 'leaf', x: rnd(-20, W), y: rnd(10, 60), vx: rnd(0.1, 0.6), vy: rnd(0.3, 0.7), life: 260, color: Math.random() < 0.5 ? C.G2 : C.G1, size: 2}); };
@@ -58,16 +72,17 @@ window.__EDL = (() => {
   /* ================= COLD OPEN: a stroll through the graveyard, to the training-ground theme ================= */
   shot(150, i => {
     BW.idle(405, -1);
-    G.hx = -24 + Math.max(0, i - 8) * 0.8; G.ph += 0.104;
-    HE.pose(G.hx, FLOOR, 1, qWalk(G.ph));
+    G.hx = -24 + Math.max(0, i - 8) * 0.8;
+    HE.pose(G.hx, FLOOR, 1, qWalk(wph(G.hx)));
     leafIdle(); A.tick();
     A.render({cam: {x: L(228, 262, sm(i / 149)), y: 150, z: L(1.12, 1.3, sm(i / 149))}});
-  }, {init: () => { A.init(); G.ph = 0; }, fadeIn: 40, cues: [[0, 'music', 'calm']]});
+  }, {init: () => { A.init(); G.ph = 0; }, fadeIn: 40, cues: [[0, 'music', 'calm']],
+    over: (og, i, OW, OH) => { const a = clamp(Math.min((i - 40) / 20, (146 - i) / 16), 0, 1); if (a > 0) { og.globalAlpha = 0.72 * a; og.fillStyle = '#000'; og.fillRect(0, 700, 760, 210); og.globalAlpha = a; og.fillStyle = C.R; og.fillRect(0, 700, Math.round(760 * a), 4); og.globalAlpha = 1; cap(og, '제1화', {x: 110, y: 735, sc: 2, a, align: 'left', S: 3}); cap(og, '사슬의 묘지', {x: 110, y: 790, sc: 4, a, align: 'left', S: 3}); } }});
 
   // over the shoulder: the bowmaster, huge and black in the foreground; the walker, small, far away
   shot(110, i => {
     boss.hidden = true; BW.idle(405, -1);
-    G.hx += 0.8; G.ph += 0.104; HE.pose(G.hx, FLOOR, 1, qWalk(G.ph));
+    G.hx += 0.8; HE.pose(G.hx, FLOOR, 1, qWalk(wph(G.hx)));
     leafIdle(); A.tick();
     A.render({cam: {x: 190, y: 180, z: 1.3}, screen: () => {
       const q = bossPose(boss);
@@ -85,7 +100,7 @@ window.__EDL = (() => {
   // the draw, and the shot
   shot(70, i => {
     BW.aim(405, FLOOR, -1, Math.PI + 0.03, i >= 48);
-    if (i === 48) { const [x, y] = BW.bowPt(); G.arrow = A.arrow(x - 10, y, -14, 0); shakeAmt = 3; __T.sfx('arrow'); __T.sfx('whoosh'); }
+    if (i === 48) { const [x, y] = BW.bowPt(); G.arrow = A.arrow(x - 10, y, -14, 0); A.twang(x, y); shakeAmt = 3; __T.sfx('arrow'); __T.sfx('whoosh'); }
     A.tick();
     const h = bHead(), k = i >= 48 ? eo(sg(i, 48, 56)) : 0;
     A.render({cam: {x: h[0] - 14, y: h[1] + 14, z: 3.1 + 0.4 * k, r: -0.1, sx: 270}});
@@ -99,29 +114,26 @@ window.__EDL = (() => {
     A.render({cam: {x: a.x - 6, y: a.y, z: 4.4}, bg: () => { A.fill(C.W); A.streaks(0, {color: '#8a8a8a', n: 40, speed: -30, seed: 3}); A.streaks(0, {color: C.K, n: 14, speed: -42, seed: 9}); }});
     boss.hidden = false; A.hideHero = false;
   });
-  // the catch - without breaking stride, without looking
+  // the arrow: without looking, without breaking stride, he tips the blade on his shoulder into its path - tink
   const CF = 26;
-  shot(130, (i, st) => {
-    if (i === 0) { arrows.length = 0; G.hx = 100; st.frozen = 0; }
-    const frozen = i >= CF && i < CF + 9;
-    if (!frozen) { G.hx += 0.75; G.ph += 0.0975; }
-    const catchArm = i >= CF - 2 && i < 92, look = sm(sg(i, 50, 66)) * (1 - sm(sg(i, 92, 100)));
-    const armK = i < CF - 2 ? 0 : i < 92 ? 1 : 1 - sg(i, 92, 100);
-    HE.pose(G.hx, FLOOR, 1, qWalk(G.ph, {bu: L(-0.25 - Math.sin(G.ph) * 0.3, 1.85, armK), bf: L(0.45, 0.15, armK), ht: 0.05 + 0.4 * look}));
+  shot(130, i => {
+    if (i === 0) arrows.length = 0;
+    const frozen = i >= CF && i < CF + 8;
+    if (!frozen) G.hx += 0.75;
+    // the blade tips forward to meet it, then settles back; afterwards a glance up, nothing more
+    const tip = sm(sg(i, CF - 7, CF - 1)) * (1 - sm(sg(i, CF + 10, CF + 22))), look = sm(sg(i, 60, 70)) * (1 - sm(sg(i, 84, 96)));
+    const q = (x, k) => qWalk(wph(x), {sa: -2.0 - 0.55 * k, fu: 0.3 + 0.25 * k, ht: 0.05 - 0.25 * look});
+    HE.pose(G.hx, FLOOR, 1, q(G.hx, tip));
     BW.idle(405, -1);
     if (i === 0) {
-      // aim the arrow at where the hand will be on the frame of the catch
-      const ph = G.ph + (CF - 1) * 0.0975, x = G.hx + (CF - 1) * 0.75, q = qWalk(ph, {bu: 1.85, bf: 0.15});
-      const hand = figXform(x, FLOOR, 1, q, 1).T(solve(q).handB);
-      G.arrow = A.arrow(hand[0] - 4 + 14 * CF, hand[1], -14, 0);
+      // aim at the middle of the blade as it will be on the frame of contact
+      const x = G.hx + CF * 0.75, [b0, b1] = swordLine(x, FLOOR, 1, q(x, 1), SWORD_LEN), hit = [L(b0[0], b1[0], 0.3), L(b0[1], b1[1], 0.3)];
+      G.hit = hit; G.arrow = A.arrow(hit[0] + 14 * CF, hit[1], -14, 0);
     }
-    const a = G.arrow;
-    if (i === CF) { a.held = true; __T.kick(2); A.star(a.x, a.y, 12, 8); shakeAmt = 2; __T.sfx('parry'); }
-    if (a && a.held && catchArm) { const hp = jt(player, playerPose, 'handB'); a.x = hp[0] - 4; a.y = hp[1]; a.vx = -1; a.vy = 0; }
-    if (i === 88) {
-      const hp = jt(player, playerPose, 'handB'); arrows.length = 0; G.arrow = null;
-      for (const s of [-1, 1]) addP({kind: 'line', x: hp[0] + s * 4, y: hp[1], vx: s * 1.5, vy: -2.5, g: 0.25, life: 30, color: C.K, size: 1.5, len: 4});
-      A.star(hp[0], hp[1], 8, 6); __T.sfx('brk');
+    if (i === CF) {
+      const a = G.arrow, [x, y] = G.hit;
+      a.x = x; a.y = y; a.vx = -2.4; a.vy = -6.8; a.g = 0.3; a.stick = true;
+      __T.kick(2); A.star(x, y, 14, 8); sparks(x, y, 10); shakeAmt = 2; __T.sfx('reflect'); __T.sfx('parry');
     }
     leafIdle(); A.tick(frozen ? 0 : 1);
     A.render({cam: {x: G.hx + 34, y: 202, z: 2.4, sx: 205}});
@@ -130,7 +142,7 @@ window.__EDL = (() => {
   shot(64, i => {
     BW.idle(405, -1); leafIdle(); A.tick();
     const h = bHead();
-    A.render({cam: {x: h[0] + 4, y: h[1] + 16, z: 3.4}, world: () => {
+    A.render({cam: {x: h[0] + 4, y: h[1] + 16, z: L(3.2, 3.6, sm(i / 63))}, world: () => {
       if (i >= 8) A.emote('?', h[0] + 1, h[1] - 8, i - 8, 0.45);
       if (i >= 30) A.emote('sweat', h[0] - 8, h[1] - 2, i - 30, 0.5);
     }});
@@ -148,13 +160,13 @@ window.__EDL = (() => {
   shot(120, i => {
     HE.pose(235, FLOOR, 1, qStand({ht: 0.05 + 0.12 * sm(sg(i, 60, 76))})); BW.idle(405, -1); A.tick();
     const hh = hHead();
-    A.render({cam: {x: hh[0] + 2, y: hh[1] + 13, z: 4.4}, bg: bgPlain(C.W)});
+    A.render({cam: {x: hh[0] + 2, y: hh[1] + 13, z: L(4.1, 4.6, sm(i / 119))}, bg: bgPlain(C.W)});
   }, {subs: [{who: 'hero', text: '...그래서. 여기가 어디냐?', at: 10, dur: 104, speed: 1.8}]});
   shot(80, i => {
     BW.idle(405, -1); A.tick(); shakeAmt = Math.max(shakeAmt, 2.5);
     if (i === 70) flash = {a: 1, color: C.W};
     const h = bHead();
-    A.render({cam: {x: h[0], y: h[1] + 6, z: 5.2, r: 0.05}, bg: bgLines(C.R, C.K, 240, 120, {n: 90, r0: 46}),
+    A.render({cam: {x: h[0], y: h[1] + 6, z: L(4.6, 5.6, eo(i / 79)), r: L(0.02, 0.08, i / 79)}, bg: bgLines(C.R, C.K, 240, 120, {n: 90, r0: 46}),
       world: () => A.emote('anger', h[0] + 7, h[1] - 7, i, 0.5)});
   }, {subs: [{who: 'boss', text: '......꿰뚫어 주마!!!', at: 4, dur: 66, speed: 1.2}], cues: [[2, 'sfx', 'warn']]});
 
@@ -164,7 +176,7 @@ window.__EDL = (() => {
   shot(bt(8), i => {
     const hx = 170 + i * 0.6; G.hx = hx;
     let atk = null; arr.forEach((fa, k) => { if (i >= fa - 3 && i < fa + 10) atk = {id: k % 2 ? 2 : 1, st: i - (fa - 3)}; });
-    if (atk) HE.attack(atk.id, atk.st, hx, 1); else { G.ph += 0.078; HE.pose(hx, FLOOR, 1, qWalk(G.ph)); }
+    if (atk) HE.attack(atk.id, atk.st, hx, 1); else HE.pose(hx, FLOOR, 1, qWalkLow(wph(hx) * 0.9));
     const k = arr.findIndex(fa => i === fa - bt(1) + (fa === arr[0] ? 0 : 0));
     const spawnK = [0, 1, 2, 3, 4, 5, 6].find(k => i === bt(k));
     let last = -99; for (let k = 0; k < 7; k++) if (i >= bt(k)) last = bt(k);
@@ -172,7 +184,7 @@ window.__EDL = (() => {
     BW.aim(410, FLOOR, -1, Math.atan2(tgt[1] - 215, tgt[0] - 401), i - last < 7 && i < bt(7));
     if (spawnK != null && spawnK < 7) {
       const fa = arr[spawnK], tx = 170 + fa * 0.6 + 12, ty = FLOOR - 22, sx = 391, sy = 215;
-      A.arrow(sx, sy, (tx - sx) / (fa - i), (ty - sy) / (fa - i)); __T.sfx('arrow');
+      A.arrow(sx, sy, (tx - sx) / (fa - i), (ty - sy) / (fa - i)); A.twang(sx + 8, sy); __T.sfx('arrow');
     }
     const hit = arr.indexOf(i);
     if (hit >= 0) {
@@ -211,7 +223,8 @@ window.__EDL = (() => {
     BW.aim(382, 95, -1, Math.atan2(y - 20 - BP[1], x - BP[0]), i % 6 < 3, 'leap');
     if (i % 5 === 0) addP({kind: 'ring', x: 382, y: 73, r0: 6, rMax: 22, life: 10, color: C.G2, size: 1});
     A.tick();
-    A.render({cam: {x: L(P[j][0], P[j + 1][0], u) + 22, y: L(P[j][1], P[j + 1][1], u) - 30, z: 2.15, r: -0.16}, world: () => { for (const a of G.stepA) bigArrow(a.x, a.y, Math.atan2(a.vy, a.vx), 2.2); }});
+    A.render({cam: {x: L(P[j][0], P[j + 1][0], u) + 16, y: L(P[j][1], P[j + 1][1], u) - 26, z: 2.6, r: -0.16}, world: () => { for (const a of G.stepA) bigArrow(a.x, a.y, Math.atan2(a.vy, a.vx), 2.2); },
+      screen: () => A.streaks(-0.75, {color: '#8a8a8a', n: 16, speed: 22, seed: 13})});
   });
   // the clash, on a page of speed lines
   shot(bt(2), i => {
@@ -413,20 +426,33 @@ window.__EDL = (() => {
       {cam: {x: player.x - 2, y: player.y - 24, z, sx: 362, sy: 145}, bg: bgLines(C.K, C.R, 362, 135, {n: 70, r0: 70})},
     ], [[[0, 0], [250, 0], [222, H], [0, H]], [[250, 0], [W, 0], [W, H], [222, H]]]);
   }, {cues: [[0, 'sfx', 'cyclone'], [bt2(2), 'sfx', 'cyclone']]});
-  // the pass
-  shot(64, i => {
-    let hx, bx;
-    if (i < 6) { hx = 340; bx = 140; HE.pose(hx, FLOOR, -1, qCrouch()); BW.set({x: bx, y: FLOOR, face: 1, state: 'gale', kneel: true, drawing: false, st: 999, pose: null, onGround: true}); }
-    else if (i < 18) {
-      const u = (i - 6) / 12; hx = L(340, 120, eo(u)); bx = L(140, 360, eo(u));
-      if (i < 13) { HE.dash(hx, -1); addAfter(player, '#9a9a9a'); } else HE.pose(hx, FLOOR, -1, qFollow());
-      if (i < 13) { BW.set({x: bx, y: FLOOR - 6, face: 1, state: 'gale', kneel: false, fired: 0, st: 999, pose: null, onGround: false, vx: 10}); addBossAfter(boss); }
-      else BW.aim(bx, FLOOR, 1, 0.05, true);
-    } else { HE.pose(120, FLOOR, -1, qFollow()); BW.pose(360, FLOOR, 1, qLanded()); BW.set({state: 'leap', drawing: true, aim: 0.05, releaseT: 5, st: 999}); }
-    if (i === 12) { flash = {a: 1, color: C.W}; __T.kick(4); A.cut(40, 214, 440, 206, 26); shakeAmt = 10; __T.sfx('iai'); __T.sfx('slash'); __T.sfx('boom'); __T.sfx('impact'); }
-    A.tick();
-    A.render({cam: {x: 240, y: 178, z: 1.25}, screen: () => { if (i >= 6 && i < 13) A.streaks(0, {color: '#8a8a8a', n: 30, speed: 40, seed: 7}); }});
-  }, {cues: [[12, 'musicStop']]});
+  // the pass: they set themselves (close, close), launch, cross on the beat - the world stops - and slide apart
+  const XB = bt2(3);
+  shot(96, i => {
+    let hx = 340, bx = 140;
+    if (i === 0) arrows.length = 0;
+    const kneelB = () => BW.set({x: bx, y: FLOOR, face: 1, state: 'gale', kneel: true, drawing: false, st: 999, pose: null, onGround: true, vx: 0});
+    if (i < 50) {
+      HE.pose(hx, FLOOR, -1, qCrouch({lean: 0.6 + 0.03 * Math.sin(i * 0.25)})); kneelB();
+      if (i % 5 === 0) { addP({x: hx + rnd(-8, 8), y: FLOOR - 1, vx: rnd(-0.6, 0.6), vy: -rnd(0.2, 0.8), g: 0.03, life: 18, color: '#8a8a8a', size: 2}); addP({x: bx + rnd(-8, 8), y: FLOOR - 1, vx: rnd(-0.6, 0.6), vy: -rnd(0.2, 0.8), g: 0.03, life: 18, color: '#8a8a8a', size: 2}); }
+      if (i === 40) { dust(hx, FLOOR, 10); dust(bx, FLOOR, 10); __T.sfx('dash'); __T.sfx('whoosh'); }
+    } else if (i < XB) {
+      const u = (i - 50) / (XB - 50); hx = L(340, 236, u); bx = L(140, 244, u);
+      HE.dash(hx, -1); addAfter(player, '#9a9a9a');
+      BW.set({x: bx, y: FLOOR - 6, face: 1, state: 'gale', kneel: false, fired: 0, st: 999, pose: null, onGround: false, vx: 10}); addBossAfter(boss);
+    } else if (i < XB + 8) {
+      hx = 236; bx = 244; HE.pose(hx, FLOOR, -1, qFollow()); BW.set({x: bx, y: FLOOR - 6, face: 1, state: 'gale', kneel: false, fired: 0, st: 999, pose: null, onGround: false, vx: 10});
+    } else {
+      const u = eo(sg(i, XB + 8, XB + 24)); hx = L(236, 120, u); bx = L(244, 360, u);
+      if (u < 1 && i % 2 === 0) { dust(hx, FLOOR, 1); dust(bx, FLOOR, 1); }
+      HE.pose(hx, FLOOR, -1, qFollow()); BW.pose(bx, FLOOR, 1, qLanded()); BW.set({state: 'leap', drawing: true, aim: 0.05, releaseT: 5, st: 999});
+    }
+    if (i === XB) { flash = {a: 0.9, color: C.W}; __T.kick(4); A.cut(30, 216, 450, 204, 34); A.star(240, 212, 30, 10); shakeAmt = 10; __T.sfx('iai'); __T.sfx('slash'); __T.sfx('boom'); __T.sfx('impact'); }
+    A.tick(i >= XB && i < XB + 8 ? 0 : 1);
+    if (i < 20) { const h = hHead(); A.render({cam: {x: h[0] - 4, y: h[1] + 8, z: L(4.2, 4.8, i / 19)}, bg: bgLines(C.W, C.R, 250, 130, {n: 70, r0: 80})}); }
+    else if (i < 40) { const h = bHead(); A.render({cam: {x: h[0] + 4, y: h[1] + 8, z: L(4.2, 4.8, (i - 20) / 19)}, bg: bgLines(C.G3, C.G1, 230, 130, {n: 70, r0: 80})}); }
+    else A.render({cam: {x: 240, y: 180, z: i >= XB && i < XB + 8 ? L(1.3, 1.55, (i - XB) / 7) : 1.3}, screen: () => { if (i >= 50 && i < XB + 8) A.streaks(0, {color: '#8a8a8a', n: 30, speed: i < XB ? 40 : 0, seed: 7}); }});
+  }, {cues: [[XB, 'musicStop']]});
 
   /* ================= SILENCE: the chain on his mind breaks ================= */
   shot(110, (i, st) => {
@@ -466,16 +492,15 @@ window.__EDL = (() => {
   shot(110, i => {
     HE.pose(256, FLOOR, 1, qStand()); BW.pose(300, FLOOR, -1, qSit()); A.tick();
     const h = hHead();
-    A.render({cam: {x: h[0] + 2, y: h[1] + 13, z: 4.4}, bg: bgPlain(C.W)});
+    A.render({cam: {x: h[0] + 2, y: h[1] + 13, z: L(4.1, 4.6, sm(i / 109))}, bg: bgPlain(C.W)});
   }, {subs: [{who: 'hero', text: '...그래서. 여기 어디냐고.', at: 8, dur: 98, speed: 1.8}]});
   shot(260, (i, st) => {
     // he stands, points the way, and the man walks off the other way
     const stand = sm(sg(i, 0, 22));
     let hx = 256, hface = 1, hq = qStand({ht: 0.05 + 0.3 * Math.sin(Math.PI * sg(i, 96, 110))});
-    if (i >= 112 && i < 160) { hx = 256 - (i - 112) * 1.0; hface = -1; G.ph += 0.104; hq = qWalk(G.ph); }
+    if (i >= 112 && i < 160) { hx = 256 - (i - 112) * 1.0; hface = -1; hq = qWalk(wph(-hx)); }
     else if (i >= 160 && i < 172) { hx = 208; hface = -1; }
-    else if (i >= 172) { hx = 208 + (i - 172) * 1.9; hface = 1; G.ph += 0.2; hq = qWalk(G.ph); }
-    if (i >= 172) { const sp = 1.9; player.runPh = G.ph; }
+    else if (i >= 172) { hx = 208 + (i - 172) * 1.6; hface = 1; hq = qWalk(wph(hx)); }
     HE.pose(hx, FLOOR, hface, hq);
     if (i < 30) BW.pose(300, FLOOR, -1, makePose(lerpPose(qSit(), bowPose(Object.assign({}, boss, {state: 'idle', vx: 0})), stand)));
     else if (i < 130) { BW.aim(300, FLOOR, 1, -0.05, true); }
@@ -507,9 +532,8 @@ window.__EDL = (() => {
       ctx.globalAlpha = 1;
       // and off he goes, the right way at last
       ctx.fillStyle = '#4a4a4a'; ctx.fillRect(0, 214, W, 1);
-      G.ph += 0.104;
-      const x = -20 + i * 1.0;
-      drawFigure(x, 214, 1, qWalk(G.ph), A.heroLook({color: C.W, outline: C.K, sword: {len: SWORD_LEN, color: C.W, edge: C.K}, sc: 0.8}));
+      const x = -20 + i * 0.8;
+      drawFigure(x, 214, 1, qWalk(x / (STRIDE * 0.8)), A.heroLook({color: C.W, outline: C.K, sword: {len: SWORD_LEN, color: C.W, edge: C.K}, sc: 0.8}));
     }});
   }, {fadeOut: 50, lb: 0, cues: [[230, 'musicStop']]});
 
