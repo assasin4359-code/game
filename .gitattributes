@@ -1,0 +1,5 @@
+# keep text files LF in the repository and in every checkout, whatever the editor or OS
+* text=auto eol=lf
+*.mp4 binary
+*.png binary
+*.wav binary
