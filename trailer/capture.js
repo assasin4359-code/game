@@ -7,7 +7,7 @@ const only = process.argv[4] ? process.argv[4].split(',').map(Number) : null;
 (async () => {
   const { browser, page, ev } = await boot();
   const EDL = process.env.EDL || 'edl.js', OUT = process.env.OUT || 'out/video.mp4';
-  for (const f of ['director.js', 'rt.js', EDL]) await page.addScriptTag({ path: __dirname + '/' + f });
+  for (const f of ['director.js', 'rt.js', 'anim.js', EDL]) await page.addScriptTag({ path: __dirname + '/' + f });
   // the edit may ask for a bigger canvas (a 1080p edit composes at full size; the trailer composes at 960x540)
   const size = await ev(snapEnv => { const o = __EDL.out || [960, 540]; __T.setOut(o[0], o[1]); __T.snap = snapEnv === '1' || (snapEnv !== '0' && !!__EDL.snap); return o; }, process.env.SNAP || '');
   const info = await ev(() => ({ n: __EDL.segs.length, total: __EDL.total, segs: __EDL.segs.map(s => [s.shot, s.key || s.scene || '', s.f0, s.len]) }));

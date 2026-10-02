@@ -198,6 +198,8 @@ window.__T = (() => {
     },
   };
 
+  T.SHOTS = SHOTS;
+
   /* ---- composition: game frame -> fades -> dither -> camera crop into a 960x540 frame ---- */
   const out = mk(960, 540);
   let og = out.getContext('2d');
@@ -259,7 +261,7 @@ window.__T = (() => {
     return Math.min(1, a);
   }
   function overlays(s, i) {
-    if (s.cam) { overlaysFlash(s, i); return; }   // cinematic shots fade smoothly on the output instead (see compose)
+    if (s.cam || s.smoothFade) { overlaysFlash(s, i); return; }   // cinematic shots fade smoothly on the output instead (see compose)
     let a = 0, col = C.K;
     if (s.fadeIn && i < s.fadeIn) a = 1 - i / s.fadeIn;
     if (s.fadeOut && i >= s.len - s.fadeOut) a = Math.max(a, (i - (s.len - s.fadeOut) + 1) / s.fadeOut);
@@ -292,7 +294,7 @@ window.__T = (() => {
       og.drawImage(view, sx, sy, sw, sh, 0, 0, OW, OH);
     }
     // a dithered fade reshuffles every pixel on every frame; on the output it is a plain dim (and cheap to encode)
-    if (s.cam) { const a = fadeAlpha(s, i); if (a > 0) { og.globalAlpha = a; og.fillStyle = '#000'; og.fillRect(0, 0, OW, OH); og.globalAlpha = 1; } }
+    if (s.cam || s.smoothFade) { const a = fadeAlpha(s, i); if (a > 0) { og.globalAlpha = a; og.fillStyle = '#000'; og.fillRect(0, 0, OW, OH); og.globalAlpha = 1; } }
     const bars = s.lb || s.bars;
     if (bars) { og.fillStyle = '#000'; og.fillRect(0, 0, OW, bars); og.fillRect(0, OH - bars, OW, bars); }
     if (s.subs) subtitle(s, i);
